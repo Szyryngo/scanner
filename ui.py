@@ -9,6 +9,7 @@ from datetime import datetime
 
 packets = []
 
+# === GUI SETUP ===
 root = tk.Tk()
 root.title("NetSentinel AI")
 root.geometry("1400x900")
@@ -82,8 +83,7 @@ def show_packet_details(index):
         ascii_box.insert(tk.END, ascii_data)
 
     features = extract_features(packet)
-    decision = predict_packet_features(features)
-    weight = getattr(decision, "item", lambda: decision)() if hasattr(decision, "item") else decision
+    weight = predict_packet_features(features)
     ai_box.insert(tk.END, f"Cecha 1: {features[0]}\nCecha 2: {features[1]}\nCecha 3: {features[2]}\nCecha 4: {features[3]}\n")
     ai_box.insert(tk.END, f"Waga AI: {weight:.2f}\n")
     ai_box.insert(tk.END, f"Decyzja AI: {'Zagrożenie' if weight >= 0.5 else 'Normalny'}")
@@ -102,8 +102,7 @@ packet_listbox.bind("<<ListboxSelect>>", on_select)
 def packet_callback(packet):
     packets.insert(0, packet)
     features = extract_features(packet)
-    decision = predict_packet_features(features)
-    weight = getattr(decision, "item", lambda: decision)() if hasattr(decision, "item") else decision
+    weight = predict_packet_features(features)
     label = f"{len(packets)}. {packet.summary()} | AI: {weight:.2f}"
 
     packet_listbox.insert(0, label)
@@ -124,4 +123,18 @@ def export_packets():
             writer.writerow(["Time", "IP src", "IP dst", "Proto", "Sport", "Dport", "AI Weight"])
             for pkt in packets:
                 ip_src = pkt[IP].src if pkt.haslayer(IP) else ""
-                ip_dst = pkt[IP].dst if pkt.haslayer(IP)
+                ip_dst = pkt[IP].dst if pkt.haslayer(IP) else ""
+                proto = pkt[IP].proto if pkt.haslayer(IP) else ""
+                sport = pkt[TCP].sport if pkt.haslayer(TCP) else ""
+                dport = pkt[TCP].dport if pkt.haslayer(TCP) else ""
+                features = extract_features(pkt)
+                weight = predict_packet_features(features)
+                writer.writerow([datetime.now(), ip_src, ip_dst, proto, sport, dport, weight])
+        print(f"[💾] Eksport zakończony: {filename}")
+    except Exception as e:
+        print(f"[❌] Błąd eksportu: {e}")
+
+def start_ui():
+    load_model("model.pkl")
+    set_callback(packet_callback)
+    root.mainloop()
