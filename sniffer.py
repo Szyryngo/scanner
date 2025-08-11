@@ -7,6 +7,7 @@ from datetime import datetime
 from geo import get_geo_info
 from oui import get_vendor
 from ui import packet_queue
+from map import show_map
 
 logging.basicConfig(level=logging.INFO)
 
@@ -38,6 +39,9 @@ class SnifferThread(threading.Thread):
                 logging.info(info)
                 self.db.add_packet(str(datetime.now()), info)
                 packet_queue.put(info)
+
+                if geo.get("latitude") and geo.get("longitude"):
+                    show_map(src_ip, geo["latitude"], geo["longitude"])
         except Exception as e:
             logging.exception("Error processing packet")
 
