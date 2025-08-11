@@ -41,11 +41,19 @@ update_status()
 main_frame = tk.Frame(root, bg="#1e1e1e")
 main_frame.pack(fill=tk.BOTH, expand=True)
 
-left_frame = tk.Frame(main_frame, bg="#1e1e1e", width=200)
+left_frame = tk.Frame(main_frame, bg="#1e1e1e", width=300)
 left_frame.pack(side=tk.LEFT, fill=tk.Y)
 
 right_frame = tk.Frame(main_frame, bg="#1e1e1e")
 right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+
+# === Packet Detail Viewer (Left Panel) ===
+packet_detail_text = tk.Text(left_frame, bg="#1e1e1e", fg="white", font=("Consolas", 9), wrap=tk.NONE)
+packet_detail_text.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+scroll_y = tk.Scrollbar(left_frame, orient=tk.VERTICAL, command=packet_detail_text.yview)
+scroll_y.pack(side=tk.RIGHT, fill=tk.Y)
+packet_detail_text.config(yscrollcommand=scroll_y.set)
 
 # === Filter Section ===
 filter_frame = tk.Frame(right_frame, bg="#1e1e1e")
@@ -126,7 +134,7 @@ def export_pcap():
     except Exception as e:
         print(f"[❌] Błąd eksportu PCAP: {e}")
 
-# === Packet Detail Viewer ===
+# === Show Packet Details in Left Panel ===
 def show_packet_details(index):
     pkt = None
     if filter_var.get():
@@ -136,12 +144,10 @@ def show_packet_details(index):
         if index < len(packets):
             pkt = packets[index]
     if pkt:
-        detail_window = tk.Toplevel(root)
-        detail_window.title("Szczegóły pakietu")
-        detail_window.geometry("600x500")
-        text = tk.Text(detail_window, bg="#1e1e1e", fg="white", font=("Consolas", 10))
-        text.pack(fill=tk.BOTH, expand=True)
-        text.insert(tk.END, pkt.show(dump=True))
+        packet_detail_text.config(state=tk.NORMAL)
+        packet_detail_text.delete(1.0, tk.END)
+        packet_detail_text.insert(tk.END, pkt.show(dump=True))
+        packet_detail_text.config(state=tk.DISABLED)
 
 # === Start GUI ===
 root.mainloop()
