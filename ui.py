@@ -113,6 +113,7 @@ tk.Button(control_frame, text="📦 Eksport PCAP", command=lambda: export_pcap()
 # === Packet Storage ===
 packets = []
 filtered_packets = []
+visible_packets = []
 sniffing = False
 paused = False
 traffic_data = []
@@ -123,20 +124,20 @@ def packet_callback(pkt):
     packets.append(pkt)
     timestamp = time.time()
     traffic_data.append(timestamp)
-    if get_active_filter(pkt):
-        filtered_packets.append(pkt)
-        display_packet(pkt, filtered=True)
 
-def get_active_filter(pkt):
-    bpf = manual_filter_var.get().strip()
-    if not bpf:
-        bpf = selected_filter.get().strip()
-    return pkt.haslayer(IP) and bpf.lower() in pkt.summary().lower()
+    bpf = manual_filter_var.get().strip() or selected_filter.get().strip()
+    if pkt.haslayer(IP) and bpf.lower() in pkt.summary().lower():
+        filtered_packets.append(pkt)
+        visible_packets.append(pkt)
+        display_packet(pkt, filtered=True)
+    elif not bpf:
+        visible_packets.append(pkt)
+        display_packet(pkt)
 
 def display_packet(pkt, filtered=False):
     features = extract_features(pkt)
     weight = predict_packet_features(features)
-    label = f"{len(filtered_packets) if filtered else len(packets)}. {pkt.summary()} | AI: {weight:.2f}"
+    label = f"{len(visible_packets)}. {pkt.summary()} | AI: {weight:.2f}"
     packet_listbox.insert(0, label)
     packet_listbox.itemconfig(0, {'fg': 'red' if weight >= 0.5 else 'white'})
 
@@ -161,11 +162,14 @@ def stop_sniffing():
 
 # === Filter Function ===
 def apply_filter():
+    bpf = manual_filter_var.get().strip() or selected_filter.get().strip()
     filtered_packets.clear()
+    visible_packets.clear()
     packet_listbox.delete(0, tk.END)
     for pkt in packets:
-        if get_active_filter(pkt):
+        if pkt.haslayer(IP) and bpf.lower() in pkt.summary().lower():
             filtered_packets.append(pkt)
+            visible_packets.append(pkt)
             display_packet(pkt, filtered=True)
 
 # === Export Function ===
@@ -179,14 +183,8 @@ def export_pcap():
 
 # === Show Packet Details ===
 def show_packet_details(index):
-    pkt = None
-    if filter_var.get() or manual_filter_var.get():
-        if index < len(filtered_packets):
-            pkt = filtered_packets[index]
-    else:
-        if index < len(packets):
-            pkt = packets[index]
-    if pkt:
+    if index < len(visible_packets):
+        pkt = visible_packets[index]
         style_tab.config(state=tk.NORMAL)
         style_tab.delete(1.0, tk.END)
         style_tab.insert(tk.END, pkt.show(dump=True))
