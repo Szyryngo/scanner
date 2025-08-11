@@ -12,8 +12,9 @@ logging.basicConfig(level=logging.INFO)
 packet_queue = queue.Queue()
 filtered_packets = []
 sniffer_thread = None
+stats = {"total": 0, "TCP": 0, "UDP": 0, "Other": 0}
 
-def update_packet_list(listbox, filter_entry):
+def update_packet_list(listbox, filter_entry, stats_label):
     def loop():
         while True:
             try:
@@ -24,6 +25,16 @@ def update_packet_list(listbox, filter_entry):
                     listbox.insert(tk.END, pkt)
                     if listbox.size() > 100:
                         listbox.delete(0)
+
+                    # Statystyki
+                    if "TCP" in pkt:
+                        stats["TCP"] += 1
+                    elif "UDP" in pkt:
+                        stats["UDP"] += 1
+                    else:
+                        stats["Other"] += 1
+                    stats["total"] += 1
+                    stats_label.config(text=f"Pakiety: {stats['total']} | TCP: {stats['TCP']} | UDP: {stats['UDP']} | Inne: {stats['Other']}")
             except queue.Empty:
                 pass
     threading.Thread(target=loop, daemon=True).start()
@@ -64,6 +75,9 @@ def start_ui():
     root = tk.Tk()
     root.title(t("app_title"))
 
+    stats_label = tk.Label(root, text="Pakiety: 0 | TCP: 0 | UDP: 0 | Inne: 0", font=("Arial", 12))
+    stats_label.pack(pady=5)
+
     filter_entry = tk.Entry(root, width=40)
     filter_entry.pack(pady=5)
     filter_entry.insert(0, "Filtruj po słowie kluczowym...")
@@ -72,7 +86,7 @@ def start_ui():
     listbox.pack(padx=10, pady=10)
     listbox.bind("<Double-Button-1>", lambda e: show_details(e, listbox))
 
-    update_packet_list(listbox, filter_entry)
+    update_packet_list(listbox, filter_entry, stats_label)
 
     btn_frame = tk.Frame(root)
     btn_frame.pack(pady=10)
