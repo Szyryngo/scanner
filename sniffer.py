@@ -4,6 +4,9 @@ import logging
 from scapy.all import sniff, IP, TCP, UDP
 from db import DatabaseManager
 from datetime import datetime
+from geo import get_geo_info
+from oui import get_vendor
+from ui import packet_queue
 
 logging.basicConfig(level=logging.INFO)
 
@@ -19,9 +22,22 @@ class SnifferThread(threading.Thread):
             if IP in pkt:
                 ip_layer = pkt[IP]
                 proto = "TCP" if TCP in pkt else "UDP" if UDP in pkt else "Other"
-                info = f"{ip_layer.src} → {ip_layer.dst} | {proto} | {len(pkt)} bytes"
+                src_ip = ip_layer.src
+                dst_ip = ip_layer.dst
+                length = len(pkt)
+
+                geo = get_geo_info(src_ip)
+                vendor = get_vendor(pkt.src)
+
+                info = f"{src_ip} → {dst_ip} | {proto} | {length} bytes"
+                if geo.get("country_name"):
+                    info += f" | {geo['country_name']}"
+                if vendor != "Unknown":
+                    info += f" | {vendor}"
+
                 logging.info(info)
                 self.db.add_packet(str(datetime.now()), info)
+                packet_queue.put(info)
         except Exception as e:
             logging.exception("Error processing packet")
 
