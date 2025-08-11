@@ -1,16 +1,22 @@
+# geo.py
+
 import requests
-import logging
 
-logging.basicConfig(level=logging.INFO)
-
-def get_geo_info(ip):
+def get_geo(ip):
     try:
-        response = requests.get(f"https://ipapi.co/{ip}/json/", timeout=5)
-        if response.status_code == 200:
-            return response.json()
-        else:
-            logging.warning(f"Geo API returned status {response.status_code}")
-            return {}
-    except requests.RequestException as e:
-        logging.exception("Geo API request failed")
-        return {}
+        response = requests.get(f"http://ip-api.com/json/{ip}?fields=country,city,lat,lon", timeout=3)
+        data = response.json()
+        return {
+            "country": data.get("country", "Nieznany"),
+            "city": data.get("city", "Nieznane"),
+            "lat": data.get("lat", "0.0"),
+            "lon": data.get("lon", "0.0")
+        }
+    except Exception as e:
+        print(f"[❌] Błąd geolokalizacji: {e}")
+        return {
+            "country": "Błąd",
+            "city": "Błąd",
+            "lat": "0.0",
+            "lon": "0.0"
+        }
