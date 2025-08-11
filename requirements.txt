@@ -1,0 +1,4 @@
+pyqt5>=5.15
+scapy>=2.5.0
+psutil>=5.9
+requests>=2.31
