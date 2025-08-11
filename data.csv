@@ -1,9 +1,5 @@
-packet_size,geo_distance,threat_score,time_delta
-120,0.0,0,0.2
-80,0.0,0,0.1
-1500,0.0,1,0.3
-60,0.0,0,0.05
-2000,0.0,1,0.4
-100,0.0,0,0.15
-90,0.0,0,0.12
-1800,0.0,1,0.35
+feature1,feature2,feature3,label
+0.1,0.5,0.3,normal
+0.9,0.2,0.8,threat
+0.4,0.7,0.6,normal
+0.8,0.1,0.9,threat
