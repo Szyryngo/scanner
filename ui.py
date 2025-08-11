@@ -1,34 +1,15 @@
 import tkinter as tk
 from tkinter import messagebox, filedialog
 from sniffer import SnifferThread
+from visualize import show_anomaly_chart
 import logging
 
+# Statystyki globalne
 stats = {
     "packets": 0,
     "alerts": 0,
     "threats": 0
 }
-
-def start_ui():
-    root = tk.Tk()
-    root.title("Network Monitor")
-
-    btn_frame = tk.Frame(root)
-    btn_frame.pack(pady=10)
-
-    start_btn = tk.Button(btn_frame, text="Start", command=start_sniffer)
-    start_btn.grid(row=0, column=0, padx=5)
-
-    stop_btn = tk.Button(btn_frame, text="Stop", command=stop_sniffer)
-    stop_btn.grid(row=0, column=1, padx=5)
-
-    stats_btn = tk.Button(btn_frame, text="Statystyki", command=show_stats)
-    stats_btn.grid(row=0, column=2, padx=5)
-
-    save_stats_btn = tk.Button(btn_frame, text="Zapisz statystyki", command=save_stats)
-    save_stats_btn.grid(row=0, column=3, padx=5)
-
-    root.mainloop()
 
 sniffer_thread = None
 
@@ -59,3 +40,27 @@ def save_stats():
     except Exception as e:
         logging.exception("Save stats error")
         messagebox.showerror("Błąd", "Nie udało się zapisać statystyk.")
+
+def start_ui():
+    root = tk.Tk()
+    root.title("NetSentinel AI")
+
+    btn_frame = tk.Frame(root)
+    btn_frame.pack(pady=10)
+
+    start_btn = tk.Button(btn_frame, text="Start", command=start_sniffer)
+    start_btn.grid(row=0, column=0, padx=5)
+
+    stop_btn = tk.Button(btn_frame, text="Stop", command=stop_sniffer)
+    stop_btn.grid(row=0, column=1, padx=5)
+
+    stats_btn = tk.Button(btn_frame, text="Statystyki", command=show_stats)
+    stats_btn.grid(row=0, column=2, padx=5)
+
+    save_stats_btn = tk.Button(btn_frame, text="Zapisz statystyki", command=save_stats)
+    save_stats_btn.grid(row=0, column=3, padx=5)
+
+    chart_btn = tk.Button(btn_frame, text="Wykres", command=lambda: show_anomaly_chart(stats))
+    chart_btn.grid(row=0, column=4, padx=5)
+
+    root.mainloop()
