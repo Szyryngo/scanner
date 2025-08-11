@@ -1,10 +1,13 @@
 import tkinter as tk
 from tkinter import ttk
-from scapy.all import sniff, IP
+from scapy.all import sniff, IP, raw
 from scapy.utils import wrpcap
 from datetime import datetime
 import threading
 import psutil
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import time
 
 # === AI Prediction Stub ===
 def extract_features(pkt):
@@ -16,7 +19,7 @@ def predict_packet_features(features):
 # === GUI Setup ===
 root = tk.Tk()
 root.title("NetSentinel AI")
-root.geometry("1000x600")
+root.geometry("1200x700")
 root.configure(bg="#1e1e1e")
 
 # === Top Bar ===
@@ -37,23 +40,32 @@ def update_status():
 
 update_status()
 
+# === Fullscreen Toggle ===
+def toggle_fullscreen():
+    root.attributes("-fullscreen", not root.attributes("-fullscreen"))
+
+fullscreen_btn = tk.Button(top_bar, text="🔲", command=toggle_fullscreen, bg="#2d2d2d", fg="white")
+fullscreen_btn.pack(side=tk.RIGHT, padx=5)
+
 # === Main Frames ===
 main_frame = tk.Frame(root, bg="#1e1e1e")
 main_frame.pack(fill=tk.BOTH, expand=True)
 
-left_frame = tk.Frame(main_frame, bg="#1e1e1e", width=300)
+left_frame = tk.Frame(main_frame, bg="#1e1e1e", width=400)
 left_frame.pack(side=tk.LEFT, fill=tk.Y)
 
 right_frame = tk.Frame(main_frame, bg="#1e1e1e")
 right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
 
-# === Packet Detail Viewer (Left Panel) ===
-packet_detail_text = tk.Text(left_frame, bg="#1e1e1e", fg="white", font=("Consolas", 9), wrap=tk.NONE)
-packet_detail_text.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+# === Tabs in Left Panel ===
+tabs = ttk.Notebook(left_frame)
+tabs.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-scroll_y = tk.Scrollbar(left_frame, orient=tk.VERTICAL, command=packet_detail_text.yview)
-scroll_y.pack(side=tk.RIGHT, fill=tk.Y)
-packet_detail_text.config(yscrollcommand=scroll_y.set)
+style_tab = tk.Text(tabs, bg="#1e1e1e", fg="white", font=("Consolas", 9), wrap=tk.NONE)
+hex_tab = tk.Text(tabs, bg="#1e1e1e", fg="white", font=("Consolas", 9), wrap=tk.NONE)
+
+tabs.add(style_tab, text="Struktura")
+tabs.add(hex_tab, text="HEX / ASCII")
 
 # === Filter Section ===
 filter_frame = tk.Frame(right_frame, bg="#1e1e1e")
@@ -81,35 +93,55 @@ packet_listbox.bind("<<ListboxSelect>>", on_packet_select)
 control_frame = tk.Frame(right_frame, bg="#1e1e1e")
 control_frame.pack(fill=tk.X, padx=10, pady=5)
 
+tk.Button(control_frame, text="▶️ Start", command=lambda: start_sniffing(), bg="#3a3a3a", fg="white").pack(side=tk.LEFT, padx=5)
+tk.Button(control_frame, text="⏸️ Pauza", command=lambda: pause_sniffing(), bg="#3a3a3a", fg="white").pack(side=tk.LEFT, padx=5)
+tk.Button(control_frame, text="⏹️ Stop", command=lambda: stop_sniffing(), bg="#3a3a3a", fg="white").pack(side=tk.LEFT, padx=5)
 tk.Button(control_frame, text="📦 Eksport PCAP", command=lambda: export_pcap(), bg="#3a3a3a", fg="white").pack(side=tk.LEFT, padx=5)
 
 # === Packet Storage ===
 packets = []
 filtered_packets = []
-
+sniffing = False
+paused = False
 # === Sniffer Thread ===
 def packet_callback(pkt):
+    if paused:
+        return
     packets.append(pkt)
+    timestamp = time.time()
+    traffic_data.append(timestamp)
     if filter_var.get():
         if pkt.haslayer(IP) and filter_var.get().lower() in pkt.summary().lower():
             filtered_packets.append(pkt)
-            features = extract_features(pkt)
-            weight = predict_packet_features(features)
-            label = f"{len(filtered_packets)}. {pkt.summary()} | AI: {weight:.2f}"
-            packet_listbox.insert(0, label)
-            packet_listbox.itemconfig(0, {'fg': 'red' if weight >= 0.5 else 'white'})
+            display_packet(pkt, filtered=True)
     else:
-        features = extract_features(pkt)
-        weight = predict_packet_features(features)
-        label = f"{len(packets)}. {pkt.summary()} | AI: {weight:.2f}"
-        packet_listbox.insert(0, label)
-        packet_listbox.itemconfig(0, {'fg': 'red' if weight >= 0.5 else 'white'})
+        display_packet(pkt)
 
-def start_sniffing():
+def display_packet(pkt, filtered=False):
+    features = extract_features(pkt)
+    weight = predict_packet_features(features)
+    label = f"{len(filtered_packets) if filtered else len(packets)}. {pkt.summary()} | AI: {weight:.2f}"
+    packet_listbox.insert(0, label)
+    packet_listbox.itemconfig(0, {'fg': 'red' if weight >= 0.5 else 'white'})
+
+def sniff_loop():
     sniff(prn=packet_callback, store=False)
 
-sniff_thread = threading.Thread(target=start_sniffing, daemon=True)
-sniff_thread.start()
+def start_sniffing():
+    global sniffing, paused
+    if not sniffing:
+        sniffing = True
+        paused = False
+        threading.Thread(target=sniff_loop, daemon=True).start()
+
+def pause_sniffing():
+    global paused
+    paused = True
+
+def stop_sniffing():
+    global sniffing, paused
+    sniffing = False
+    paused = True
 
 # === Filter Function ===
 def apply_filter():
@@ -119,11 +151,7 @@ def apply_filter():
     for pkt in packets:
         if pkt.haslayer(IP) and bpf.lower() in pkt.summary().lower():
             filtered_packets.append(pkt)
-            features = extract_features(pkt)
-            weight = predict_packet_features(features)
-            label = f"{len(filtered_packets)}. {pkt.summary()} | AI: {weight:.2f}"
-            packet_listbox.insert(0, label)
-            packet_listbox.itemconfig(0, {'fg': 'red' if weight >= 0.5 else 'white'})
+            display_packet(pkt, filtered=True)
 
 # === Export Function ===
 def export_pcap():
@@ -134,7 +162,7 @@ def export_pcap():
     except Exception as e:
         print(f"[❌] Błąd eksportu PCAP: {e}")
 
-# === Show Packet Details in Left Panel ===
+# === Show Packet Details ===
 def show_packet_details(index):
     pkt = None
     if filter_var.get():
@@ -144,10 +172,46 @@ def show_packet_details(index):
         if index < len(packets):
             pkt = packets[index]
     if pkt:
-        packet_detail_text.config(state=tk.NORMAL)
-        packet_detail_text.delete(1.0, tk.END)
-        packet_detail_text.insert(tk.END, pkt.show(dump=True))
-        packet_detail_text.config(state=tk.DISABLED)
+        style_tab.config(state=tk.NORMAL)
+        style_tab.delete(1.0, tk.END)
+        style_tab.insert(tk.END, pkt.show(dump=True))
+        style_tab.config(state=tk.DISABLED)
+
+        hex_tab.config(state=tk.NORMAL)
+        hex_tab.delete(1.0, tk.END)
+        raw_bytes = raw(pkt)
+        hex_view = ' '.join(f"{b:02x}" for b in raw_bytes)
+        ascii_view = ''.join(chr(b) if 32 <= b <= 126 else '.' for b in raw_bytes)
+        hex_tab.insert(tk.END, f"HEX:\n{hex_view}\n\nASCII:\n{ascii_view}")
+        hex_tab.config(state=tk.DISABLED)
+
+# === Traffic Graph ===
+traffic_data = []
+
+graph_frame = tk.Frame(right_frame, bg="#1e1e1e")
+graph_frame.pack(fill=tk.X, padx=10, pady=5)
+
+fig, ax = plt.subplots(figsize=(5, 2), dpi=100)
+canvas = FigureCanvasTkAgg(fig, master=graph_frame)
+canvas.get_tk_widget().pack()
+
+def update_graph():
+    now = time.time()
+    recent = [t for t in traffic_data if now - t < 60]
+    traffic_data[:] = recent
+    counts = [0]*60
+    for t in recent:
+        sec = int(now - t)
+        if 0 <= sec < 60:
+            counts[59 - sec] += 1
+    ax.clear()
+    ax.plot(counts, color='cyan')
+    ax.set_title("Pakiety / sekunda")
+    ax.set_ylim(0, max(counts) + 1)
+    canvas.draw()
+    root.after(1000, update_graph)
+
+update_graph()
 
 # === Start GUI ===
 root.mainloop()
