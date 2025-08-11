@@ -2,7 +2,7 @@ import requests
 import logging
 
 # 🔑 Wstaw swój klucz API tutaj
-API_KEY = "TWÓJ_KLUCZ_API"
+API_KEY = "63d04bb48f5fd3d184f1d742071f20b604d726754cd8083485fc1662a9d16705584c539e411f469d"
 
 # 📊 Próg zgłoszeń, powyżej którego IP uznawane jest za złośliwe
 THREAT_THRESHOLD = 5
@@ -40,3 +40,4 @@ def check_ip_threat(ip):
     except requests.RequestException as e:
         logging.exception("Threat API request failed")
         return {}
+
