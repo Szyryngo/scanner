@@ -6,3 +6,4 @@ unittest
 pandas
 scikit-learn
 joblib
+matplotlib
