@@ -1,60 +1,46 @@
-from scapy.all import sniff, IP
-from geo import get_geo_info
-from oui import get_vendor
-from threat_intel import check_ip_threat
-from ai import predict_anomaly, update_model
-from tkinter import messagebox
+from scapy.all import sniff, IP, TCP, UDP
 import threading
-import logging
-import time
 
 class SnifferThread(threading.Thread):
-    def __init__(self, stats):
+    def __init__(self, stats, online_mode=True, log_callback=None):
         super().__init__()
-        self.running = True
         self.stats = stats
-        self.last_packet_time = time.time()
+        self.online_mode = online_mode
+        self.log_callback = log_callback or (lambda msg: print(msg))
+        self.running = True
+        self.last_ip = None
 
     def run(self):
-        sniff(prn=self.packet_callback, store=False)
+        self.log_callback(f"🔄 Tryb: {'Online' if self.online_mode else 'Offline'}")
+        sniff(prn=self.process_packet, store=False, stop_filter=self.should_stop)
 
-    def packet_callback(self, packet):
+    def should_stop(self, packet):
+        return not self.running
+
+    def process_packet(self, packet):
         if not self.running:
             return
 
+        self.stats["packets"] += 1
+
         if IP in packet:
-            src_ip = packet[IP].src
-            dst_ip = packet[IP].dst
-            self.stats["packets"] += 1
+            ip_src = packet[IP].src
+            ip_dst = packet[IP].dst
+            proto = packet[IP].proto
 
-            geo = get_geo_info(src_ip)
-            vendor = get_vendor(packet.src)
-            threat = check_ip_threat(src_ip)
+            msg = f"📦 IP: {ip_src} → {ip_dst} | Proto: {proto}"
+            self.log_callback(msg)
 
-            packet_size = len(packet)
-            geo_distance = 0.0  # Można rozbudować o obliczenia geograficzne
-            threat_score = 1 if threat.get("malicious") else 0
-            current_time = time.time()
-            time_delta = current_time - self.last_packet_time
-            self.last_packet_time = current_time
-
-            features = [packet_size, geo_distance, threat_score, time_delta]
-
-            if predict_anomaly(features):
-                logging.warning(f"🧠 Wykryto anomalię: {src_ip} → {dst_ip}")
+            # Prosta analiza zagrożeń
+            if TCP in packet and packet[TCP].dport == 4444:
                 self.stats["alerts"] += 1
-
-                # 🔁 Uczenie online
-                new_data = {
-                    "packet_size": packet_size,
-                    "geo_distance": geo_distance,
-                    "threat_score": threat_score,
-                    "time_delta": time_delta
-                }
-                update_model(new_data)
-
-            if threat.get("malicious"):
                 self.stats["threats"] += 1
-                alert = f"Zagrożenie: {src_ip} oznaczone jako złośliwe!"
-                logging.warning(alert)
-                messagebox.showwarning("Threat Intelligence", alert)
+                self.log_callback(f"☠️ Podejrzany port 4444 od {ip_src}!")
+
+            if UDP in packet and packet[UDP].dport == 53 and self.online_mode:
+                self.stats["alerts"] += 1
+                self.log_callback(f"🔔 DNS zapytanie od {ip_src}")
+
+            # Zapamiętaj IP do mapy
+            if self.online_mode:
+                self.last_ip = ip_src
