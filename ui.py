@@ -1,5 +1,6 @@
 import tkinter as tk
-from tkinter import messagebox, filedialog, scrolledtext, ttk
+from tkinter import messagebox, filedialog, ttk
+from tkinter.scrolledtext import ScrolledText
 from sniffer import SnifferThread
 from visualize import show_anomaly_chart
 from ai import train_model
@@ -70,9 +71,21 @@ def show_geo_map():
         messagebox.showinfo("Mapa", "Brak IP do wyświetlenia.")
 
 def log_callback(msg, packet=None):
-    packet_list.insert(tk.END, msg)
+    index = len(captured_packets) + 1
+    display_msg = f"#{index:03d} {msg}"
+
     if packet:
-        captured_packets.append(packet)
+        captured_packets.insert(0, packet)
+        packet_list.insert(0, display_msg)
+
+        # Kolorowanie podejrzanych
+        if "Zagrożenie" in msg or "DNS" in msg:
+            packet_list.itemconfig(0, {'fg': 'red'})
+        else:
+            packet_list.itemconfig(0, {'fg': 'white'})
+    else:
+        log_box.insert(tk.END, msg + "\n")
+        log_box.see(tk.END)
 
 def on_packet_select(event):
     selection = event.widget.curselection()
@@ -82,6 +95,7 @@ def on_packet_select(event):
         show_packet_details(packet)
 
 def show_packet_details(packet):
+    detail_box.config(state=tk.NORMAL)
     detail_box.delete("1.0", tk.END)
 
     if packet.haslayer(IP):
@@ -107,6 +121,8 @@ def show_packet_details(packet):
         detail_box.insert(tk.END, "\nHEX:\n" + hex_data + "\n")
         detail_box.insert(tk.END, "\nASCII:\n" + ascii_data + "\n")
 
+    detail_box.config(state=tk.DISABLED)
+
 def on_close():
     stop_sniffer()
     root.destroy()
@@ -116,47 +132,53 @@ def start_ui():
 
     root = tk.Tk()
     root.title("NetSentinel AI")
-    root.geometry("1000x600")
+    root.geometry("1100x650")
+    root.configure(bg="#1e1e1e")
     root.protocol("WM_DELETE_WINDOW", on_close)
 
     style = ttk.Style()
-    style.configure("TButton", font=("Segoe UI", 10), padding=6)
-    style.configure("Start.TButton", foreground="green")
-    style.configure("Stop.TButton", foreground="red")
+    style.theme_use("clam")
+    style.configure("TButton", font=("Segoe UI", 10), padding=6, background="#2d2d2d", foreground="white")
+    style.configure("TLabel", background="#1e1e1e", foreground="white")
 
-    top_frame = tk.Frame(root)
+    top_frame = tk.Frame(root, bg="#1e1e1e")
     top_frame.pack(pady=10)
 
-    ttk.Button(top_frame, text="Start", command=start_sniffer, style="Start.TButton").grid(row=0, column=0, padx=5)
-    ttk.Button(top_frame, text="Stop", command=stop_sniffer, style="Stop.TButton").grid(row=0, column=1, padx=5)
-    ttk.Button(top_frame, text="Statystyki", command=show_stats).grid(row=0, column=2, padx=5)
-    ttk.Button(top_frame, text="Zapisz", command=save_stats).grid(row=0, column=3, padx=5)
-    ttk.Button(top_frame, text="Wykres", command=lambda: show_anomaly_chart(stats)).grid(row=0, column=4, padx=5)
-    ttk.Button(top_frame, text="Trenuj AI", command=train_ai_model).grid(row=0, column=5, padx=5)
-    ttk.Button(top_frame, text="Mapa IP", command=show_geo_map).grid(row=0, column=6, padx=5)
+    buttons = [
+        ("Start", start_sniffer),
+        ("Stop", stop_sniffer),
+        ("Statystyki", show_stats),
+        ("Zapisz", save_stats),
+        ("Wykres", lambda: show_anomaly_chart(stats)),
+        ("Trenuj AI", train_ai_model),
+        ("Mapa IP", show_geo_map),
+        ("Przełącz tryb", toggle_mode)
+    ]
 
-    mode_label = tk.Label(root, text="Tryb: Online", font=("Arial", 12))
+    for i, (text, cmd) in enumerate(buttons):
+        ttk.Button(top_frame, text=text, command=cmd).grid(row=0, column=i, padx=5)
+
+    mode_label = ttk.Label(root, text="Tryb: Online", font=("Arial", 12))
     mode_label.pack(pady=5)
 
-    ttk.Button(root, text="Przełącz tryb", command=toggle_mode).pack(pady=5)
-
-    main_frame = tk.Frame(root)
+    main_frame = tk.Frame(root, bg="#1e1e1e")
     main_frame.pack(fill=tk.BOTH, expand=True)
 
-    left_frame = tk.Frame(main_frame)
+    left_frame = tk.Frame(main_frame, bg="#1e1e1e")
     left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-    right_frame = tk.Frame(main_frame)
+    right_frame = tk.Frame(main_frame, bg="#1e1e1e")
     right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
 
-    packet_list = tk.Listbox(left_frame, width=60, height=20)
+    packet_list = tk.Listbox(left_frame, width=60, height=20, bg="#2d2d2d", fg="white", font=("Consolas", 10))
     packet_list.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
     packet_list.bind("<<ListboxSelect>>", on_packet_select)
 
-    detail_box = tk.Text(right_frame, width=60, height=20)
+    detail_box = tk.Text(right_frame, width=60, height=20, bg="#2d2d2d", fg="white", font=("Consolas", 10))
     detail_box.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+    detail_box.config(state=tk.DISABLED)
 
-    log_box = scrolledtext.ScrolledText(root, width=110, height=8)
+    log_box = ScrolledText(root, width=130, height=6, bg="#1e1e1e", fg="gray", font=("Consolas", 9))
     log_box.pack(padx=10, pady=10)
 
     root.mainloop()
