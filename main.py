@@ -1,30 +1,12 @@
-import logging
-from sniffer import SnifferThread
-import time
+"""
+🛡️ NetSentinel AI — skrypt startowy
+Uruchamia interfejs GUI do monitorowania sieci, trenowania AI i wizualizacji zagrożeń.
+"""
 
-# Konfiguracja logowania
-logging.basicConfig(level=logging.INFO)
-logging.info("Starting application...")
-
-def main():
-    # Statystyki przekazywane do sniffera
-    stats = {
-        "packets": 0,
-        "alerts": 0,
-        "threats": 0
-    }
-
-    # Inicjalizacja i uruchomienie sniffera
-    sniffer = SnifferThread(stats)
-    sniffer.start()
-
-    try:
-        while True:
-            time.sleep(5)
-            logging.info(f"Statystyki: {stats}")
-    except KeyboardInterrupt:
-        sniffer.running = False
-        logging.info("Sniffer zatrzymany przez użytkownika.")
+from ui import start_ui
 
 if __name__ == "__main__":
-    main()
+    try:
+        start_ui()
+    except Exception as e:
+        print(f"❌ Błąd uruchomienia: {e}")
