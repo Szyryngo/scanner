@@ -1,26 +1,22 @@
-# netsentinel_ai/arp_guard.py
+import threading
 import time
-from collections import defaultdict, deque
+import logging
 
-class ArpGuard:
-    def __init__(self, max_events=300):
-        self.ip_macs = defaultdict(set)   # ip -> set(mac)
-        self.conflicts = deque(maxlen=max_events)
+logging.basicConfig(level=logging.INFO)
 
-    def observe(self, ip, mac):
-        if not ip or not mac:
-            return
-        mac = mac.lower()
-        s = self.ip_macs[ip]
-        if s and mac not in s:
-            # konflikt
-            self.conflicts.append({
-                "ts": time.time(),
-                "ip": ip,
-                "macs": list(s | {mac}),
-                "new": mac
-            })
-        s.add(mac)
+class ArpGuardThread(threading.Thread):
+    def __init__(self):
+        super().__init__()
+        self.running = True
 
-    def get_conflicts(self):
-        return list(self.conflicts)
+    def run(self):
+        logging.info("ARP Guard started")
+        while self.running:
+            try:
+                # Tu dodaj logikę wykrywania ARP spoofingu
+                time.sleep(1)
+            except Exception as e:
+                logging.exception("ARP Guard error")
+
+    def stop(self):
+        self.running = False
