@@ -2,7 +2,7 @@ from scapy.all import sniff, IP
 from geo import get_geo_info
 from oui import get_vendor
 from threat_intel import check_ip_threat
-from ai import predict_anomaly
+from ai import predict_anomaly, update_model
 from tkinter import messagebox
 import threading
 import logging
@@ -31,9 +31,8 @@ class SnifferThread(threading.Thread):
             vendor = get_vendor(packet.src)
             threat = check_ip_threat(src_ip)
 
-            # Dane do ML
             packet_size = len(packet)
-            geo_distance = 0  # Można rozbudować o obliczenia geograficzne
+            geo_distance = 0.0  # Można rozbudować o obliczenia geograficzne
             threat_score = 1 if threat.get("malicious") else 0
             current_time = time.time()
             time_delta = current_time - self.last_packet_time
@@ -44,6 +43,15 @@ class SnifferThread(threading.Thread):
             if predict_anomaly(features):
                 logging.warning(f"🧠 Wykryto anomalię: {src_ip} → {dst_ip}")
                 self.stats["alerts"] += 1
+
+                # 🔁 Uczenie online
+                new_data = {
+                    "packet_size": packet_size,
+                    "geo_distance": geo_distance,
+                    "threat_score": threat_score,
+                    "time_delta": time_delta
+                }
+                update_model(new_data)
 
             if threat.get("malicious"):
                 self.stats["threats"] += 1
