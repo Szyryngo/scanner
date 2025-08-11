@@ -2,6 +2,7 @@ import threading
 import time
 import logging
 from scapy.all import ARP, sniff
+from tkinter import messagebox
 
 logging.basicConfig(level=logging.INFO)
 
@@ -16,7 +17,9 @@ class ArpGuardThread(threading.Thread):
             ip = pkt[ARP].psrc
             mac = pkt[ARP].hwsrc
             if ip in self.known_macs and self.known_macs[ip] != mac:
-                logging.warning(f"ARP Spoofing detected: {ip} changed from {self.known_macs[ip]} to {mac}")
+                alert = f"ARP Spoofing: {ip} zmienił MAC z {self.known_macs[ip]} na {mac}"
+                logging.warning(alert)
+                messagebox.showwarning("Zagrożenie!", alert)
             else:
                 self.known_macs[ip] = mac
 
