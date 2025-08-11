@@ -1,7 +1,7 @@
-import threading
 import logging
 from sniffer import SnifferThread
 from arp_guard import ArpGuardThread
+from lan import LanScanner
 from ui import start_ui
 
 logging.basicConfig(level=logging.INFO)
@@ -9,22 +9,23 @@ logging.basicConfig(level=logging.INFO)
 def main():
     logging.info("Starting application...")
 
-    # Uruchomienie sniffera
     sniffer = SnifferThread()
-    sniffer.start()
-
-    # Uruchomienie ARP Guard
     arp_guard = ArpGuardThread()
-    arp_guard.start()
+    lan_scanner = LanScanner()
 
-    # Uruchomienie GUI
+    sniffer.start()
+    arp_guard.start()
+    lan_scanner.start()
+
     start_ui()
 
-    # Zatrzymanie wątków przy zamknięciu
     sniffer.stop()
     arp_guard.stop()
+    lan_scanner.stop()
+
     sniffer.join()
     arp_guard.join()
+    lan_scanner.join()
 
 if __name__ == "__main__":
     main()
