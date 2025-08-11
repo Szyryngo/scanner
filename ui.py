@@ -71,10 +71,22 @@ tabs.add(hex_tab, text="HEX / ASCII")
 filter_frame = tk.Frame(right_frame, bg="#1e1e1e")
 filter_frame.pack(fill=tk.X, padx=10, pady=5)
 
-filter_var = tk.StringVar()
 tk.Label(filter_frame, text="Filtr BPF:", bg="#1e1e1e", fg="white").pack(side=tk.LEFT)
-filter_entry = tk.Entry(filter_frame, textvariable=filter_var, width=30)
-filter_entry.pack(side=tk.LEFT, padx=5)
+
+filter_options = [
+    "", "ip", "tcp", "udp", "icmp", "port 80", "port 443", "tcp port 22",
+    "udp port 53", "host 192.168.1.1", "src host 10.0.0.5", "dst host 8.8.8.8",
+    "net 192.168.0.0/16", "tcp[13] & 2 != 0", "tcp[13] & 4 != 0", "tcp[13] & 1 != 0"
+]
+
+selected_filter = tk.StringVar()
+filter_dropdown = ttk.Combobox(filter_frame, textvariable=selected_filter, values=filter_options, width=25)
+filter_dropdown.pack(side=tk.LEFT, padx=5)
+
+manual_filter_var = tk.StringVar()
+manual_entry = tk.Entry(filter_frame, textvariable=manual_filter_var, width=30)
+manual_entry.pack(side=tk.LEFT, padx=5)
+
 tk.Button(filter_frame, text="🔍 Zastosuj", command=lambda: apply_filter(), bg="#3a3a3a", fg="white").pack(side=tk.LEFT)
 
 # === Packet List ===
@@ -103,6 +115,7 @@ packets = []
 filtered_packets = []
 sniffing = False
 paused = False
+traffic_data = []
 # === Sniffer Thread ===
 def packet_callback(pkt):
     if paused:
@@ -110,12 +123,15 @@ def packet_callback(pkt):
     packets.append(pkt)
     timestamp = time.time()
     traffic_data.append(timestamp)
-    if filter_var.get():
-        if pkt.haslayer(IP) and filter_var.get().lower() in pkt.summary().lower():
-            filtered_packets.append(pkt)
-            display_packet(pkt, filtered=True)
-    else:
-        display_packet(pkt)
+    if get_active_filter(pkt):
+        filtered_packets.append(pkt)
+        display_packet(pkt, filtered=True)
+
+def get_active_filter(pkt):
+    bpf = manual_filter_var.get().strip()
+    if not bpf:
+        bpf = selected_filter.get().strip()
+    return pkt.haslayer(IP) and bpf.lower() in pkt.summary().lower()
 
 def display_packet(pkt, filtered=False):
     features = extract_features(pkt)
@@ -145,11 +161,10 @@ def stop_sniffing():
 
 # === Filter Function ===
 def apply_filter():
-    bpf = filter_var.get()
     filtered_packets.clear()
     packet_listbox.delete(0, tk.END)
     for pkt in packets:
-        if pkt.haslayer(IP) and bpf.lower() in pkt.summary().lower():
+        if get_active_filter(pkt):
             filtered_packets.append(pkt)
             display_packet(pkt, filtered=True)
 
@@ -165,7 +180,7 @@ def export_pcap():
 # === Show Packet Details ===
 def show_packet_details(index):
     pkt = None
-    if filter_var.get():
+    if filter_var.get() or manual_filter_var.get():
         if index < len(filtered_packets):
             pkt = filtered_packets[index]
     else:
@@ -186,8 +201,6 @@ def show_packet_details(index):
         hex_tab.config(state=tk.DISABLED)
 
 # === Traffic Graph ===
-traffic_data = []
-
 graph_frame = tk.Frame(right_frame, bg="#1e1e1e")
 graph_frame.pack(fill=tk.X, padx=10, pady=5)
 
