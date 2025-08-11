@@ -2,7 +2,10 @@ import tkinter as tk
 from tkinter import ttk
 from scapy.all import IP, TCP, UDP
 from sniffer import set_callback, start_sniffing, stop_sniffing
-from ai import extract_features, predict_packet_features
+from ai import extract_features, predict_packet_features, load_model
+from geo import get_geo
+import csv
+from datetime import datetime
 
 packets = []
 
@@ -30,6 +33,7 @@ control_frame.pack(fill=tk.X, padx=10, pady=5)
 tk.Button(control_frame, text="▶ Start", command=start_sniffing, bg="#3a3a3a", fg="white").pack(side=tk.LEFT, padx=5)
 tk.Button(control_frame, text="⏹ Stop", command=stop_sniffing, bg="#3a3a3a", fg="white").pack(side=tk.LEFT, padx=5)
 tk.Button(control_frame, text="🧹 Wyczyść", command=lambda: clear_packets(), bg="#3a3a3a", fg="white").pack(side=tk.LEFT, padx=5)
+tk.Button(control_frame, text="💾 Eksportuj", command=lambda: export_packets(), bg="#3a3a3a", fg="white").pack(side=tk.LEFT, padx=5)
 
 def create_panel(label_text, height, fg="white", font=("Segoe UI", 9)):
     ttk.Label(right_frame, text=label_text).pack()
@@ -53,7 +57,9 @@ def show_packet_details(index):
     if packet.haslayer(IP):
         ip = packet[IP]
         info_box.insert(tk.END, f"IP src: {ip.src}\nIP dst: {ip.dst}\nProto: {ip.proto}\n")
-        geo_box.insert(tk.END, f"Kraj: Polska\nMiasto: Warszawa\nLat: 52.2297\nLon: 21.0122\n")
+
+        geo = get_geo(ip.src)
+        geo_box.insert(tk.END, f"Kraj: {geo['country']}\nMiasto: {geo['city']}\nLat: {geo['lat']}\nLon: {geo['lon']}\n")
 
     if packet.haslayer(TCP):
         tcp = packet[TCP]
@@ -72,7 +78,7 @@ def show_packet_details(index):
 
     features = extract_features(packet)
     decision = predict_packet_features(features)
-    ai_box.insert(tk.END, f"Cecha 1: {features[0]}\nCecha 2: {features[1]}\nCecha 3: {features[2]}\n")
+    ai_box.insert(tk.END, f"Cecha 1: {features[0]}\nCecha 2: {features[1]}\nCecha 3: {features[2]}\nCecha 4: {features[3]}\n")
     ai_box.insert(tk.END, f"Decyzja AI: {'Zagrożenie' if decision else 'Normalny'}")
 
     for box in [info_box, geo_box, hex_box, ascii_box, ai_box]:
@@ -94,6 +100,4 @@ def clear_packets():
     packets.clear()
     packet_listbox.delete(0, tk.END)
 
-def start_ui():
-    set_callback(packet_callback)
-    root.mainloop()
+def
