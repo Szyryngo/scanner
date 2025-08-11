@@ -1,31 +1,22 @@
-from sklearn.ensemble import IsolationForest
 import pandas as pd
-import joblib
-import os
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report
 
-MODEL_PATH = "model.pkl"
+def train_model(csv_path):
+    df = pd.read_csv(csv_path)
 
-def train_model(data_path="data.csv", model_path=MODEL_PATH):
-    df = pd.read_csv(data_path)
-    features = df[["packet_size", "geo_distance", "threat_score", "time_delta"]]
-    model = IsolationForest(contamination=0.05, random_state=42)
-    model.fit(features)
-    joblib.dump(model, model_path)
-    print("✅ Model wytrenowany i zapisany.")
+    if 'label' not in df.columns:
+        raise ValueError("Brak kolumny 'label' w danych.")
 
-def predict_anomaly(packet_features, model_path=MODEL_PATH):
-    if not os.path.exists(model_path):
-        print("⚠️ Brak wytrenowanego modelu. Użyj train_model().")
-        return False
-    model = joblib.load(model_path)
-    prediction = model.predict([packet_features])
-    return prediction[0] == -1  # True = anomalia
+    X = df.drop(columns=['label'])
+    y = df['label']
 
-def update_model(new_data, model_path=MODEL_PATH):
-    if not os.path.exists("data.csv"):
-        df = pd.DataFrame([new_data])
-    else:
-        df = pd.read_csv("data.csv")
-        df = pd.concat([df, pd.DataFrame([new_data])], ignore_index=True)
-    df.to_csv("data.csv", index=False)
-    train_model("data.csv", model_path)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    model = RandomForestClassifier(n_estimators=100)
+    model.fit(X_train, y_train)
+
+    y_pred = model.predict(X_test)
+    report = classification_report(y_test, y_pred)
+    print("🧠 Raport AI:\n", report)
