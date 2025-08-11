@@ -7,7 +7,7 @@ def show_anomaly_chart(stats):
 
         plt.figure(figsize=(8, 5))
         bars = plt.bar(labels, values, color=["blue", "orange", "red"])
-        plt.title("📈 Statystyki ruchu sieciowego")
+        plt.title("Statystyki ruchu sieciowego")
         plt.ylabel("Liczba zdarzeń")
 
         for bar in bars:
@@ -17,4 +17,4 @@ def show_anomaly_chart(stats):
         plt.tight_layout()
         plt.show()
     except Exception as e:
-        print(f"❌ Błąd wykresu: {e}")
+        print(f"Błąd wykresu: {e}")
