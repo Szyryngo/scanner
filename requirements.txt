@@ -3,3 +3,6 @@ requests
 tk
 folium
 unittest
+pandas
+scikit-learn
+joblib
