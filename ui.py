@@ -1,184 +1,134 @@
 import tkinter as tk
-from tkinter import messagebox, filedialog, ttk
-from tkinter.scrolledtext import ScrolledText
-from sniffer import SnifferThread
-from visualize import show_anomaly_chart
-from ai import train_model
-from map import show_map
-import logging
-from scapy.all import IP, TCP, UDP
+from tkinter import ttk
+from scapy.all import sniff, IP, TCP, UDP
 
-stats = {
-    "packets": 0,
-    "alerts": 0,
-    "threats": 0
-}
+# Przykładowe funkcje AI
+def extract_features(packet):
+    size = len(packet)
+    threat_score = 1 if packet.haslayer(TCP) and packet[TCP].dport == 23 else 0  # np. Telnet
+    time_delta = 0.05  # przykładowa wartość
+    return [size, threat_score, time_delta]
 
-sniffer_thread = None
-online_mode = True
-last_ip = None
-captured_packets = []
+def predict_packet_features(features):
+    return features[1] == 1  # jeśli threat_score == 1, uznajemy za zagrożenie
 
-def start_sniffer():
-    global sniffer_thread
-    sniffer_thread = SnifferThread(stats, online_mode, log_callback)
-    sniffer_thread.start()
-    log_callback("Sniffer uruchomiony.")
+# GUI
+root = tk.Tk()
+root.title("Podgląd pakietów z AI")
+root.geometry("1000x700")
+root.configure(bg="#1e1e1e")
 
-def stop_sniffer():
-    global sniffer_thread
-    if sniffer_thread:
-        sniffer_thread.running = False
-        log_callback("Sniffer zatrzymany.")
+main_frame = tk.Frame(root, bg="#1e1e1e")
+main_frame.pack(fill=tk.BOTH, expand=True)
 
-def show_stats():
-    stat_text = "\n".join([f"{k}: {v}" for k, v in stats.items()])
-    messagebox.showinfo("Statystyki", stat_text)
+# Lista pakietów
+packet_listbox = tk.Listbox(main_frame, width=40, bg="#2d2d2d", fg="white", font=("Consolas", 10))
+packet_listbox.pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=10)
 
-def save_stats():
-    try:
-        file_path = filedialog.asksaveasfilename(defaultextension=".txt")
-        if file_path:
-            with open(file_path, "w", encoding="utf-8") as f:
-                for key, value in stats.items():
-                    f.write(f"{key}: {value}\n")
-            messagebox.showinfo("Zapisano", "Statystyki zapisane.")
-    except Exception as e:
-        logging.exception("Save stats error")
-        messagebox.showerror("Błąd", "Nie udało się zapisać statystyk.")
+# Panel szczegółów
+right_frame = tk.Frame(main_frame, bg="#1e1e1e")
+right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
 
-def toggle_mode():
-    global online_mode
-    online_mode = not online_mode
-    mode_label.config(text=f"Tryb: {'Online' if online_mode else 'Offline'}")
-    log_callback(f"Przełączono tryb na {'Online' if online_mode else 'Offline'}.")
+# Informacje o pakiecie
+info_label = ttk.Label(right_frame, text="Informacje o pakiecie")
+info_label.pack()
+info_box = tk.Text(right_frame, height=6, bg="#2d2d2d", fg="white", font=("Consolas", 10))
+info_box.pack(fill=tk.X, padx=10)
 
-def train_ai_model():
-    try:
-        train_model("data.csv")
-        messagebox.showinfo("AI", "Model AI został wytrenowany.")
-        log_callback("Model AI wytrenowany.")
-    except Exception as e:
-        logging.exception("Train model error")
-        messagebox.showerror("Błąd", str(e))
+# Geolokalizacja
+geo_label = ttk.Label(right_frame, text="Geolokalizacja")
+geo_label.pack()
+geo_box = tk.Text(right_frame, height=4, bg="#2d2d2d", fg="white", font=("Consolas", 10))
+geo_box.pack(fill=tk.X, padx=10)
 
-def show_geo_map():
-    global last_ip
-    if sniffer_thread and sniffer_thread.last_ip:
-        show_map(sniffer_thread.last_ip, 52.2297, 21.0122)
-        log_callback(f"Wyświetlono mapę dla IP: {sniffer_thread.last_ip}")
-    else:
-        messagebox.showinfo("Mapa", "Brak IP do wyświetlenia.")
+# HEX
+hex_label = ttk.Label(right_frame, text="HEX")
+hex_label.pack()
+hex_box = tk.Text(right_frame, height=6, bg="#2d2d2d", fg="white", font=("Consolas", 10))
+hex_box.pack(fill=tk.X, padx=10)
 
-def log_callback(msg, packet=None):
-    index = len(captured_packets) + 1
-    display_msg = f"#{index:03d} {msg}"
+# ASCII
+ascii_label = ttk.Label(right_frame, text="ASCII")
+ascii_label.pack()
+ascii_box = tk.Text(right_frame, height=6, bg="#2d2d2d", fg="white", font=("Consolas", 10))
+ascii_box.pack(fill=tk.X, padx=10)
 
-    if packet:
-        captured_packets.insert(0, packet)
-        packet_list.insert(0, display_msg)
+# Decyzja AI
+ai_label = ttk.Label(right_frame, text="Decyzja AI")
+ai_label.pack()
+ai_box = tk.Text(right_frame, height=4, bg="#2d2d2d", fg="lightgreen", font=("Consolas", 10))
+ai_box.pack(fill=tk.X, padx=10)
 
-        # Kolorowanie podejrzanych
-        if "Zagrożenie" in msg or "DNS" in msg:
-            packet_list.itemconfig(0, {'fg': 'red'})
-        else:
-            packet_list.itemconfig(0, {'fg': 'white'})
-    else:
-        log_box.insert(tk.END, msg + "\n")
-        log_box.see(tk.END)
+# Lista pakietów
+packets = []
 
-def on_packet_select(event):
-    selection = event.widget.curselection()
-    if selection:
-        index = selection[0]
-        packet = captured_packets[index]
-        show_packet_details(packet)
+def show_packet_details(index):
+    packet = packets[index]
 
-def show_packet_details(packet):
-    detail_box.config(state=tk.NORMAL)
-    detail_box.delete("1.0", tk.END)
+    info_box.config(state=tk.NORMAL)
+    geo_box.config(state=tk.NORMAL)
+    hex_box.config(state=tk.NORMAL)
+    ascii_box.config(state=tk.NORMAL)
+    ai_box.config(state=tk.NORMAL)
+
+    info_box.delete("1.0", tk.END)
+    geo_box.delete("1.0", tk.END)
+    hex_box.delete("1.0", tk.END)
+    ascii_box.delete("1.0", tk.END)
+    ai_box.delete("1.0", tk.END)
 
     if packet.haslayer(IP):
         ip = packet[IP]
-        detail_box.insert(tk.END, f"IP src: {ip.src}\n")
-        detail_box.insert(tk.END, f"IP dst: {ip.dst}\n")
-        detail_box.insert(tk.END, f"Proto: {ip.proto}\n")
+        info_box.insert(tk.END, f"IP src: {ip.src}\n")
+        info_box.insert(tk.END, f"IP dst: {ip.dst}\n")
+        info_box.insert(tk.END, f"Proto: {ip.proto}\n")
+
+        geo_box.insert(tk.END, f"Kraj: Polska\nMiasto: Warszawa\nLat: 52.2297\nLon: 21.0122\n")
 
     if packet.haslayer(TCP):
         tcp = packet[TCP]
-        detail_box.insert(tk.END, f"TCP sport: {tcp.sport}\n")
-        detail_box.insert(tk.END, f"TCP dport: {tcp.dport}\n")
+        info_box.insert(tk.END, f"TCP sport: {tcp.sport}\n")
+        info_box.insert(tk.END, f"TCP dport: {tcp.dport}\n")
 
     if packet.haslayer(UDP):
         udp = packet[UDP]
-        detail_box.insert(tk.END, f"UDP sport: {udp.sport}\n")
-        detail_box.insert(tk.END, f"UDP dport: {udp.dport}\n")
+        info_box.insert(tk.END, f"UDP sport: {udp.sport}\n")
+        info_box.insert(tk.END, f"UDP dport: {udp.dport}\n")
 
     if packet.haslayer("Raw"):
         raw = bytes(packet["Raw"].load)
         hex_data = raw.hex(" ")
         ascii_data = "".join([chr(b) if 32 <= b <= 126 else "." for b in raw])
-        detail_box.insert(tk.END, "\nHEX:\n" + hex_data + "\n")
-        detail_box.insert(tk.END, "\nASCII:\n" + ascii_data + "\n")
+        hex_box.insert(tk.END, hex_data)
+        ascii_box.insert(tk.END, ascii_data)
 
-    detail_box.config(state=tk.DISABLED)
+    # AI analiza
+    features = extract_features(packet)
+    decision = predict_packet_features(features)
+    ai_box.insert(tk.END, f"Cecha 1 (rozmiar): {features[0]}\n")
+    ai_box.insert(tk.END, f"Cecha 2 (zagrożenie): {features[1]}\n")
+    ai_box.insert(tk.END, f"Cecha 3 (czas delta): {features[2]}\n")
+    ai_box.insert(tk.END, f"Decyzja AI: {'Zagrożenie' if decision else 'Normalny'}")
 
-def on_close():
-    stop_sniffer()
-    root.destroy()
+    info_box.config(state=tk.DISABLED)
+    geo_box.config(state=tk.DISABLED)
+    hex_box.config(state=tk.DISABLED)
+    ascii_box.config(state=tk.DISABLED)
+    ai_box.config(state=tk.DISABLED)
 
-def start_ui():
-    global mode_label, log_box, root, packet_list, detail_box
+def on_select(event):
+    selection = event.widget.curselection()
+    if selection:
+        index = selection[0]
+        show_packet_details(index)
 
-    root = tk.Tk()
-    root.title("NetSentinel AI")
-    root.geometry("1100x650")
-    root.configure(bg="#1e1e1e")
-    root.protocol("WM_DELETE_WINDOW", on_close)
+packet_listbox.bind("<<ListboxSelect>>", on_select)
 
-    style = ttk.Style()
-    style.theme_use("clam")
-    style.configure("TButton", font=("Segoe UI", 10), padding=6, background="#2d2d2d", foreground="white")
-    style.configure("TLabel", background="#1e1e1e", foreground="white")
+def packet_callback(packet):
+    packets.append(packet)
+    packet_listbox.insert(tk.END, f"{len(packets)}. {packet.summary()}")
 
-    top_frame = tk.Frame(root, bg="#1e1e1e")
-    top_frame.pack(pady=10)
+# Start sniffowania
+sniff(prn=packet_callback, store=False)
 
-    buttons = [
-        ("Start", start_sniffer),
-        ("Stop", stop_sniffer),
-        ("Statystyki", show_stats),
-        ("Zapisz", save_stats),
-        ("Wykres", lambda: show_anomaly_chart(stats)),
-        ("Trenuj AI", train_ai_model),
-        ("Mapa IP", show_geo_map),
-        ("Przełącz tryb", toggle_mode)
-    ]
-
-    for i, (text, cmd) in enumerate(buttons):
-        ttk.Button(top_frame, text=text, command=cmd).grid(row=0, column=i, padx=5)
-
-    mode_label = ttk.Label(root, text="Tryb: Online", font=("Arial", 12))
-    mode_label.pack(pady=5)
-
-    main_frame = tk.Frame(root, bg="#1e1e1e")
-    main_frame.pack(fill=tk.BOTH, expand=True)
-
-    left_frame = tk.Frame(main_frame, bg="#1e1e1e")
-    left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
-    right_frame = tk.Frame(main_frame, bg="#1e1e1e")
-    right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
-
-    packet_list = tk.Listbox(left_frame, width=60, height=20, bg="#2d2d2d", fg="white", font=("Consolas", 10))
-    packet_list.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
-    packet_list.bind("<<ListboxSelect>>", on_packet_select)
-
-    detail_box = tk.Text(right_frame, width=60, height=20, bg="#2d2d2d", fg="white", font=("Consolas", 10))
-    detail_box.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
-    detail_box.config(state=tk.DISABLED)
-
-    log_box = ScrolledText(root, width=130, height=6, bg="#1e1e1e", fg="gray", font=("Consolas", 9))
-    log_box.pack(padx=10, pady=10)
-
-    root.mainloop()
+root.mainloop()
