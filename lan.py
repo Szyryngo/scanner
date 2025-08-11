@@ -1,7 +1,6 @@
 import threading
 import time
 import logging
-import socket
 
 logging.basicConfig(level=logging.INFO)
 
@@ -15,8 +14,8 @@ class LanScanner(threading.Thread):
         logging.info("LAN Scanner started")
         while self.running:
             try:
-                # Tu dodaj logikę skanowania LAN
-                time.sleep(10)  # Throttling
+                # LAN scanning logic here
+                time.sleep(10)
             except Exception as e:
                 logging.exception("LAN Scanner error")
 
