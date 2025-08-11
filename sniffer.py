@@ -6,12 +6,12 @@ class SnifferThread(threading.Thread):
         super().__init__()
         self.stats = stats
         self.online_mode = online_mode
-        self.log_callback = log_callback or (lambda msg: print(msg))
+        self.log_callback = log_callback or (lambda msg, pkt=None: print(msg))
         self.running = True
         self.last_ip = None
 
     def run(self):
-        self.log_callback(f"🔄 Tryb: {'Online' if self.online_mode else 'Offline'}")
+        self.log_callback(f"Tryb: {'Online' if self.online_mode else 'Offline'}")
         sniff(prn=self.process_packet, store=False, stop_filter=self.should_stop)
 
     def should_stop(self, packet):
@@ -28,19 +28,17 @@ class SnifferThread(threading.Thread):
             ip_dst = packet[IP].dst
             proto = packet[IP].proto
 
-            msg = f"📦 IP: {ip_src} → {ip_dst} | Proto: {proto}"
-            self.log_callback(msg)
+            msg = f"{ip_src} → {ip_dst} | Proto: {proto}"
+            self.log_callback(msg, packet)
 
-            # Prosta analiza zagrożeń
             if TCP in packet and packet[TCP].dport == 4444:
                 self.stats["alerts"] += 1
                 self.stats["threats"] += 1
-                self.log_callback(f"☠️ Podejrzany port 4444 od {ip_src}!")
+                self.log_callback(f"Zagrożenie: port 4444 od {ip_src}", packet)
 
             if UDP in packet and packet[UDP].dport == 53 and self.online_mode:
                 self.stats["alerts"] += 1
-                self.log_callback(f"🔔 DNS zapytanie od {ip_src}")
+                self.log_callback(f"DNS zapytanie od {ip_src}", packet)
 
-            # Zapamiętaj IP do mapy
             if self.online_mode:
                 self.last_ip = ip_src
