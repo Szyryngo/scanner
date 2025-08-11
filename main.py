@@ -1,31 +1,30 @@
 import logging
 from sniffer import SnifferThread
-from arp_guard import ArpGuardThread
-from lan import LanScanner
-from ui import start_ui
+import time
 
+# Konfiguracja logowania
 logging.basicConfig(level=logging.INFO)
+logging.info("Starting application...")
 
 def main():
-    logging.info("Starting application...")
+    # Statystyki przekazywane do sniffera
+    stats = {
+        "packets": 0,
+        "alerts": 0,
+        "threats": 0
+    }
 
-    sniffer = SnifferThread()
-    arp_guard = ArpGuardThread()
-    lan_scanner = LanScanner()
-
+    # Inicjalizacja i uruchomienie sniffera
+    sniffer = SnifferThread(stats)
     sniffer.start()
-    arp_guard.start()
-    lan_scanner.start()
 
-    start_ui()
-
-    sniffer.stop()
-    arp_guard.stop()
-    lan_scanner.stop()
-
-    sniffer.join()
-    arp_guard.join()
-    lan_scanner.join()
+    try:
+        while True:
+            time.sleep(5)
+            logging.info(f"Statystyki: {stats}")
+    except KeyboardInterrupt:
+        sniffer.running = False
+        logging.info("Sniffer zatrzymany przez użytkownika.")
 
 if __name__ == "__main__":
     main()
