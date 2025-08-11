@@ -9,6 +9,7 @@ from datetime import datetime
 
 packets = []
 
+# === GUI SETUP ===
 root = tk.Tk()
 root.title("NetSentinel AI")
 root.geometry("1200x800")
@@ -21,9 +22,11 @@ style.configure("TLabel", background="#1e1e1e", foreground="lightblue", font=("S
 main_frame = tk.Frame(root, bg="#1e1e1e")
 main_frame.pack(fill=tk.BOTH, expand=True)
 
+# === LISTA PAKIETÓW ===
 packet_listbox = tk.Listbox(main_frame, width=50, bg="#2d2d2d", fg="white", font=("Consolas", 10))
 packet_listbox.pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=10)
 
+# === PANEL SZCZEGÓŁÓW ===
 right_frame = tk.Frame(main_frame, bg="#1e1e1e")
 right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
 
@@ -47,6 +50,7 @@ hex_box = create_panel("HEX", 6, font=("Consolas", 9))
 ascii_box = create_panel("ASCII", 6, font=("Consolas", 9))
 ai_box = create_panel("Decyzja AI", 4, fg="lightgreen")
 
+# === WYŚWIETLANIE SZCZEGÓŁÓW PAKIETU ===
 def show_packet_details(index):
     packet = packets[index]
 
@@ -84,6 +88,7 @@ def show_packet_details(index):
     for box in [info_box, geo_box, hex_box, ascii_box, ai_box]:
         box.config(state=tk.DISABLED)
 
+# === OBSŁUGA WYBORU PAKIETU ===
 def on_select(event):
     selection = event.widget.curselection()
     if selection:
@@ -92,12 +97,38 @@ def on_select(event):
 
 packet_listbox.bind("<<ListboxSelect>>", on_select)
 
+# === CALLBACK DLA SNIFFERA ===
 def packet_callback(packet):
     packets.insert(0, packet)
     packet_listbox.insert(0, f"{len(packets)}. {packet.summary()}")
 
+# === CZYSZCZENIE LISTY ===
 def clear_packets():
     packets.clear()
     packet_listbox.delete(0, tk.END)
 
-def
+# === EKSPORT DO CSV ===
+def export_packets():
+    filename = f"packets_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    try:
+        with open(filename, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["Time", "IP src", "IP dst", "Proto", "Sport", "Dport", "AI Decision"])
+            for pkt in packets:
+                ip_src = pkt[IP].src if pkt.haslayer(IP) else ""
+                ip_dst = pkt[IP].dst if pkt.haslayer(IP) else ""
+                proto = pkt[IP].proto if pkt.haslayer(IP) else ""
+                sport = pkt[TCP].sport if pkt.haslayer(TCP) else ""
+                dport = pkt[TCP].dport if pkt.haslayer(TCP) else ""
+                features = extract_features(pkt)
+                decision = predict_packet_features(features)
+                writer.writerow([datetime.now(), ip_src, ip_dst, proto, sport, dport, decision])
+        print(f"[💾] Eksport zakończony: {filename}")
+    except Exception as e:
+        print(f"[❌] Błąd eksportu: {e}")
+
+# === START GUI ===
+def start_ui():
+    load_model("model.pkl")
+    set_callback(packet_callback)
+    root.mainloop()
