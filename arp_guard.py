@@ -13,7 +13,7 @@ class ArpGuardThread(threading.Thread):
         logging.info("ARP Guard started")
         while self.running:
             try:
-                # Tu dodaj logikę wykrywania ARP spoofingu
+                # ARP spoofing detection logic here
                 time.sleep(1)
             except Exception as e:
                 logging.exception("ARP Guard error")
