@@ -20,3 +20,12 @@ def predict_anomaly(packet_features, model_path=MODEL_PATH):
     model = joblib.load(model_path)
     prediction = model.predict([packet_features])
     return prediction[0] == -1  # True = anomalia
+
+def update_model(new_data, model_path=MODEL_PATH):
+    if not os.path.exists("data.csv"):
+        df = pd.DataFrame([new_data])
+    else:
+        df = pd.read_csv("data.csv")
+        df = pd.concat([df, pd.DataFrame([new_data])], ignore_index=True)
+    df.to_csv("data.csv", index=False)
+    train_model("data.csv", model_path)
