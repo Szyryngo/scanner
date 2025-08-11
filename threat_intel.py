@@ -5,6 +5,7 @@ logging.basicConfig(level=logging.INFO)
 
 def check_ip_threat(ip):
     try:
+        # Przykładowe API — zamień na prawdziwe źródło
         response = requests.get(f"https://threatapi.example.com/check?ip={ip}", timeout=5)
         if response.status_code == 200:
             return response.json()
