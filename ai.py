@@ -1,22 +1,10 @@
-import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report
+# ai.py
 
-def train_model(csv_path):
-    df = pd.read_csv(csv_path)
+def extract_features(packet):
+    size = len(packet)
+    threat_score = 1 if packet.haslayer("TCP") and packet["TCP"].dport == 23 else 0
+    time_delta = 0.05  # przykładowa wartość
+    return [size, threat_score, time_delta]
 
-    if 'label' not in df.columns:
-        raise ValueError("Brak kolumny 'label' w danych.")
-
-    X = df.drop(columns=['label'])
-    y = df['label']
-
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-    model = RandomForestClassifier(n_estimators=100)
-    model.fit(X_train, y_train)
-
-    y_pred = model.predict(X_test)
-    report = classification_report(y_test, y_pred)
-    print("🧠 Raport AI:\n", report)
+def predict_packet_features(features):
+    return features[1] == 1  # jeśli threat_score == 1, uznajemy za zagrożenie
