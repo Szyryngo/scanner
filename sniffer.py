@@ -1,44 +1,37 @@
-from scapy.all import sniff, IP, TCP, UDP
+# sniffer.py
+
+from scapy.all import sniff
 import threading
 
-class SnifferThread(threading.Thread):
-    def __init__(self, stats, online_mode=True, log_callback=None):
-        super().__init__()
-        self.stats = stats
-        self.online_mode = online_mode
-        self.log_callback = log_callback or (lambda msg, pkt=None: print(msg))
-        self.running = True
-        self.last_ip = None
+sniffing = False
+sniff_thread = None
+packet_callback = None
 
-    def run(self):
-        self.log_callback(f"Tryb: {'Online' if self.online_mode else 'Offline'}")
-        sniff(prn=self.process_packet, store=False, stop_filter=self.should_stop)
+def set_callback(callback_fn):
+    global packet_callback
+    packet_callback = callback_fn
 
-    def should_stop(self, packet):
-        return not self.running
+def sniff_packets():
+    try:
+        sniff(prn=handle_packet, store=False, stop_filter=lambda x: not sniffing)
+    except Exception as e:
+        print(f"[❌] Błąd sniffowania: {e}")
 
-    def process_packet(self, packet):
-        if not self.running:
-            return
+def handle_packet(packet):
+    if packet_callback:
+        packet_callback(packet)
 
-        self.stats["packets"] += 1
+def start_sniffing():
+    global sniffing, sniff_thread
+    if sniffing:
+        print("[ℹ️] Sniffowanie już trwa.")
+        return
+    sniffing = True
+    sniff_thread = threading.Thread(target=sniff_packets, daemon=True)
+    sniff_thread.start()
+    print("[✅] Sniffowanie rozpoczęte.")
 
-        if IP in packet:
-            ip_src = packet[IP].src
-            ip_dst = packet[IP].dst
-            proto = packet[IP].proto
-
-            msg = f"{ip_src} → {ip_dst} | Proto: {proto}"
-            self.log_callback(msg, packet)
-
-            if TCP in packet and packet[TCP].dport == 4444:
-                self.stats["alerts"] += 1
-                self.stats["threats"] += 1
-                self.log_callback(f"Zagrożenie: port 4444 od {ip_src}", packet)
-
-            if UDP in packet and packet[UDP].dport == 53 and self.online_mode:
-                self.stats["alerts"] += 1
-                self.log_callback(f"DNS zapytanie od {ip_src}", packet)
-
-            if self.online_mode:
-                self.last_ip = ip_src
+def stop_sniffing():
+    global sniffing
+    sniffing = False
+    print("[⏹] Sniffowanie zatrzymane.")
