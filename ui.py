@@ -61,6 +61,14 @@ tk.Button(filter_frame, text="🔍 Zastosuj", command=lambda: apply_filter(), bg
 packet_listbox = tk.Listbox(right_frame, bg="#121212", fg="white", font=("Consolas", 10))
 packet_listbox.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
+def on_packet_select(event):
+    selection = event.widget.curselection()
+    if selection:
+        index = selection[0]
+        show_packet_details(index)
+
+packet_listbox.bind("<<ListboxSelect>>", on_packet_select)
+
 # === Control Buttons ===
 control_frame = tk.Frame(right_frame, bg="#1e1e1e")
 control_frame.pack(fill=tk.X, padx=10, pady=5)
@@ -117,6 +125,23 @@ def export_pcap():
         print(f"[📦] Eksport PCAP zakończony: {filename}")
     except Exception as e:
         print(f"[❌] Błąd eksportu PCAP: {e}")
+
+# === Packet Detail Viewer ===
+def show_packet_details(index):
+    pkt = None
+    if filter_var.get():
+        if index < len(filtered_packets):
+            pkt = filtered_packets[index]
+    else:
+        if index < len(packets):
+            pkt = packets[index]
+    if pkt:
+        detail_window = tk.Toplevel(root)
+        detail_window.title("Szczegóły pakietu")
+        detail_window.geometry("600x500")
+        text = tk.Text(detail_window, bg="#1e1e1e", fg="white", font=("Consolas", 10))
+        text.pack(fill=tk.BOTH, expand=True)
+        text.insert(tk.END, pkt.show(dump=True))
 
 # === Start GUI ===
 root.mainloop()
